@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sfu-config
+  namespace: sfu
+data:
+  # Server Configuration
+  NODE_ENV: "production"
+  PORT: "3000"
+  HOST: "0.0.0.0"
+  
+  # Mediasoup Configuration
+  MEDIASOUP_WORKER_BIN: "mediasoup-worker"
+  MEDIASOUP_WORKER_LOG_LEVEL: "warn"
+  MEDIASOUP_WORKER_LOG_TAG: "worker"
+  MEDIASOUP_WORKER_LOG_COLOR: "false"
+  MEDIASOUP_WORKER_RTC_MIN_PORT: "10000"
+  MEDIASOUP_WORKER_RTC_MAX_PORT: "10100"
+  
+  # Network Configuration
+  MEDIASOUP_LISTEN_IP: "0.0.0.0"
+  MEDIASOUP_LISTEN_PORT: "3001"
+  
+  # STUN/TURN Configuration
+  STUN_SERVERS: "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+  
+  # Django Integration
+  DJANGO_BASE_URL: "http://django-backend:8000"
+  DJANGO_JWT_ALGORITHM: "HS256"
+  
+  # Redis Configuration
+  REDIS_URL: "redis://redis-service:6379"
+  REDIS_DB: "0"
+  REDIS_KEY_PREFIX: "sfu:"
+  
+  # PostgreSQL Configuration
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "sfu_backend"
+  
+  # Security Configuration
+  CORS_ORIGINS: "http://localhost:3000,https://yourdomain.com"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  JWT_ISSUER: "deensfu"
+  JWT_AUDIENCE: "deensfu-client"
+  
+  # Logging Configuration
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Metrics Configuration
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9090"
+  
+  # Health Check Configuration
+  HEALTH_CHECK_INTERVAL: "30000"
+  HEALTH_CHECK_TIMEOUT: "5000"
+  
+  # Room Configuration
+  MAX_PARTICIPANTS_PER_ROOM: "100"
+  ROOM_CLEANUP_INTERVAL: "300000"
+  ROOM_IDLE_TIMEOUT: "1800000"
+  
+  # Codec Configuration
+  PREFERRED_CODECS: "VP8,VP9,AV1"
+  OPUS_BITRATE: "128000"
+  VP8_BITRATE: "1000000"
+  VP9_BITRATE: "1000000"
+  AV1_BITRATE: "1000000"
+  
+  # Simulcast Configuration
+  SIMULCAST_ENABLED: "true"
+  SIMULCAST_LAYERS: "3"
+  
+  # SVC Configuration
+  SVC_ENABLED: "true"
+  SVC_LAYERS: "3"
+  
+  # E2EE Configuration
+  E2EE_ENABLED: "false"
+  E2EE_KEY_DERIVATION_ITERATIONS: "100000"
+  
+  # Load Balancing
+  CLUSTER_MODE: "true"

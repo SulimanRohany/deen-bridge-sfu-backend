@@ -1,0 +1,456 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    - duration: 60s
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120s
+      arrivalRate: 10
+      name: "Ramp up load"
+    - duration: 300s
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 60s
+      arrivalRate: 5
+      name: "Ramp down"
+  http:
+    timeout: 30
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+  variables:
+    - roomId: "room-{{ $randomString() }}"
+    - participantId: "participant-{{ $randomString() }}"
+    - displayName: "User {{ $randomString() }}"
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/healthz"
+      - get:
+          url: "/readyz"
+      - get:
+          url: "/metrics"
+
+  - name: "WebSocket Connection"
+    weight: 30
+    flow:
+      - function: "connectWebSocket"
+      - function: "authenticate"
+      - function: "createRoom"
+      - function: "joinRoom"
+      - function: "getRouterCapabilities"
+      - function: "createTransport"
+      - function: "publishAudio"
+      - function: "publishVideo"
+      - function: "subscribeToProducers"
+      - function: "leaveRoom"
+      - function: "disconnectWebSocket"
+
+  - name: "Room Management"
+    weight: 20
+    flow:
+      - function: "connectWebSocket"
+      - function: "authenticate"
+      - function: "createRoom"
+      - function: "joinRoom"
+      - function: "getRoomParticipants"
+      - function: "leaveRoom"
+      - function: "disconnectWebSocket"
+
+  - name: "Media Streaming"
+    weight: 40
+    flow:
+      - function: "connectWebSocket"
+      - function: "authenticate"
+      - function: "joinExistingRoom"
+      - function: "createTransport"
+      - function: "publishAudio"
+      - function: "publishVideo"
+      - function: "subscribeToProducers"
+      - function: "simulateMediaFlow"
+      - function: "leaveRoom"
+      - function: "disconnectWebSocket"
+
+functions:
+  connectWebSocket: |
+    function() {
+      const WebSocket = require('ws');
+      const ws = new WebSocket('ws://localhost:3000/ws');
+      
+      this.context.ws = ws;
+      this.context.connected = false;
+      
+      return new Promise((resolve, reject) => {
+        ws.on('open', () => {
+          this.context.connected = true;
+          resolve();
+        });
+        
+        ws.on('error', (error) => {
+          reject(error);
+        });
+        
+        ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'connected') {
+            this.context.connectionId = message.data.connectionId;
+            resolve();
+          }
+        });
+        
+        setTimeout(() => {
+          if (!this.context.connected) {
+            reject(new Error('WebSocket connection timeout'));
+          }
+        }, 10000);
+      });
+    }
+
+  authenticate: |
+    function() {
+      // Mock JWT token for testing
+      const token = 'mock-jwt-token';
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'authenticate',
+          data: { token }
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'authenticated') {
+            this.context.authenticated = true;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          if (!this.context.authenticated) {
+            reject(new Error('Authentication timeout'));
+          }
+        }, 5000);
+      });
+    }
+
+  createRoom: |
+    function() {
+      const roomName = `Test Room ${Date.now()}`;
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'createRoom',
+          data: {
+            name: roomName,
+            description: 'Load test room',
+            maxParticipants: 100
+          },
+          requestId: `create-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'createRoomResponse' && message.requestId === `create-${Date.now()}`) {
+            this.context.roomId = message.data.roomId;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Create room timeout'));
+        }, 10000);
+      });
+    }
+
+  joinRoom: |
+    function() {
+      const displayName = `User ${Math.random().toString(36).substr(2, 9)}`;
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'joinRoom',
+          data: {
+            roomId: this.context.roomId,
+            displayName: displayName
+          },
+          requestId: `join-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'joinRoomResponse' && message.requestId === `join-${Date.now()}`) {
+            this.context.participantId = message.data.participants[0].id;
+            this.context.routerRtpCapabilities = message.data.routerRtpCapabilities;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Join room timeout'));
+        }, 10000);
+      });
+    }
+
+  joinExistingRoom: |
+    function() {
+      // Try to join an existing room or create one
+      this.context.roomId = 'existing-room-123';
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'joinRoom',
+          data: {
+            roomId: this.context.roomId,
+            displayName: `User ${Math.random().toString(36).substr(2, 9)}`
+          },
+          requestId: `join-existing-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'joinRoomResponse' && message.requestId === `join-existing-${Date.now()}`) {
+            this.context.participantId = message.data.participants[0].id;
+            this.context.routerRtpCapabilities = message.data.routerRtpCapabilities;
+            resolve();
+          } else if (message.type === 'error') {
+            // If room doesn't exist, create it
+            this.createRoom().then(() => {
+              this.joinRoom().then(resolve).catch(reject);
+            }).catch(reject);
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Join existing room timeout'));
+        }, 10000);
+      });
+    }
+
+  getRouterCapabilities: |
+    function() {
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'getRouterRtpCapabilities',
+          data: {
+            roomId: this.context.roomId
+          },
+          requestId: `capabilities-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'getRouterRtpCapabilitiesResponse' && message.requestId === `capabilities-${Date.now()}`) {
+            this.context.routerRtpCapabilities = message.data.rtpCapabilities;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Get router capabilities timeout'));
+        }, 5000);
+      });
+    }
+
+  createTransport: |
+    function() {
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'createWebRtcTransport',
+          data: {
+            roomId: this.context.roomId,
+            direction: 'send'
+          },
+          requestId: `transport-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'createWebRtcTransportResponse' && message.requestId === `transport-${Date.now()}`) {
+            this.context.transportId = message.data.transportId;
+            this.context.iceParameters = message.data.iceParameters;
+            this.context.iceCandidates = message.data.iceCandidates;
+            this.context.dtlsParameters = message.data.dtlsParameters;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Create transport timeout'));
+        }, 10000);
+      });
+    }
+
+  publishAudio: |
+    function() {
+      const mockRtpParameters = {
+        codecs: [{
+          mimeType: 'audio/opus',
+          clockRate: 48000,
+          channels: 2,
+          payloadType: 111
+        }],
+        headerExtensions: [],
+        rtcp: {
+          cname: 'audio-producer'
+        }
+      };
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'publish',
+          data: {
+            roomId: this.context.roomId,
+            kind: 'audio',
+            rtpParameters: mockRtpParameters
+          },
+          requestId: `publish-audio-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'publishResponse' && message.requestId === `publish-audio-${Date.now()}`) {
+            this.context.audioProducerId = message.data.producerId;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Publish audio timeout'));
+        }, 10000);
+      });
+    }
+
+  publishVideo: |
+    function() {
+      const mockRtpParameters = {
+        codecs: [{
+          mimeType: 'video/VP8',
+          clockRate: 90000,
+          payloadType: 96
+        }],
+        headerExtensions: [],
+        rtcp: {
+          cname: 'video-producer'
+        }
+      };
+      
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'publish',
+          data: {
+            roomId: this.context.roomId,
+            kind: 'video',
+            rtpParameters: mockRtpParameters
+          },
+          requestId: `publish-video-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'publishResponse' && message.requestId === `publish-video-${Date.now()}`) {
+            this.context.videoProducerId = message.data.producerId;
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Publish video timeout'));
+        }, 10000);
+      });
+    }
+
+  subscribeToProducers: |
+    function() {
+      // Simulate subscribing to existing producers
+      return new Promise((resolve) => {
+        // In a real scenario, we would get producer IDs from other participants
+        // For load testing, we'll just resolve immediately
+        setTimeout(resolve, 1000);
+      });
+    }
+
+  simulateMediaFlow: |
+    function() {
+      // Simulate media flow for a period of time
+      return new Promise((resolve) => {
+        const duration = Math.random() * 30000 + 10000; // 10-40 seconds
+        setTimeout(resolve, duration);
+      });
+    }
+
+  getRoomParticipants: |
+    function() {
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'getRoomParticipants',
+          data: {
+            roomId: this.context.roomId
+          },
+          requestId: `participants-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'getRoomParticipantsResponse' && message.requestId === `participants-${Date.now()}`) {
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Get room participants timeout'));
+        }, 5000);
+      });
+    }
+
+  leaveRoom: |
+    function() {
+      return new Promise((resolve, reject) => {
+        this.context.ws.send(JSON.stringify({
+          type: 'leaveRoom',
+          data: {
+            roomId: this.context.roomId
+          },
+          requestId: `leave-${Date.now()}`
+        }));
+        
+        this.context.ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'leaveRoomResponse' && message.requestId === `leave-${Date.now()}`) {
+            resolve();
+          } else if (message.type === 'error') {
+            reject(new Error(message.error));
+          }
+        });
+        
+        setTimeout(() => {
+          reject(new Error('Leave room timeout'));
+        }, 10000);
+      });
+    }
+
+  disconnectWebSocket: |
+    function() {
+      if (this.context.ws) {
+        this.context.ws.close();
+        this.context.ws = null;
+      }
+    }

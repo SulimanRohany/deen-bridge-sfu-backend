@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  sfu-backend:
+    build: .
+    ports:
+      - "3000:3000"      # HTTP API
+      - "3001:3001/udp"  # RTC ports
+      - "9090:9090"      # Metrics
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DJANGO_BASE_URL=http://host.docker.internal:8000
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/sfu_backend
+      - MEDIASOUP_WORKER_RTC_MIN_PORT=10000
+      - MEDIASOUP_WORKER_RTC_MAX_PORT=10100
+      - ANNOUNCED_IP=127.0.0.1
+      - MEDIASOUP_LISTEN_IP=0.0.0.0
+      - MEDIASOUP_LISTEN_PORT=3001
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - sfu-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sfu-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=sfu_backend
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+    networks:
+      - sfu-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  sfu-network:
+    driver: bridge
