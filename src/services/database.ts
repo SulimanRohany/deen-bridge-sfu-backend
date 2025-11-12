@@ -32,6 +32,10 @@ export class DatabaseService {
   }
 
   private setupEventHandlers(): void {
+    if (!this.pool) {
+      return;
+    }
+
     this.pool.on('connect', (_client) => {
       logSystemEvent('info', 'Database client connected', 'database');
     });
@@ -87,11 +91,11 @@ export class DatabaseService {
   }
 
   isHealthy(): boolean {
-    return this.isConnected && this.pool && !this.pool.ended;
+    return this.isConnected && this.pool !== null && !this.pool.ended;
   }
 
   async query(text: string, params?: any[]): Promise<any> {
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.pool) {
       logSystemEvent('warn', 'Database query skipped - not connected', 'database', { query: text });
       return { rows: [], rowCount: 0 };
     }
@@ -110,6 +114,10 @@ export class DatabaseService {
   }
 
   async getClient(): Promise<PoolClient> {
+    if (!this.pool) {
+      throw createSystemError(ERROR_CODES.DATABASE_CONNECTION_ERROR, 'Database pool not initialized');
+    }
+
     try {
       return await this.pool.connect();
     } catch (error) {

@@ -159,7 +159,7 @@ export class RoomService {
       const participantId = uuidv4();
       
       // Check if this is a hidden/observer participant
-      const isHidden = metadata?.isHidden === true;
+      const isHidden = metadata?.['isHidden'] === true;
       
       const participant: Participant = {
         id: participantId,
@@ -499,7 +499,7 @@ export class RoomService {
       isAudioEnabled: participant.isAudioEnabled,
       isVideoEnabled: participant.isVideoEnabled,
       isScreenSharing: participant.isScreenSharing,
-      isHidden: participant.isHidden,  // Include hidden flag
+      isHidden: participant.isHidden ?? false,  // Ensure it's always boolean
       joinedAt: participant.joinedAt.toISOString(),
       ...(participant.metadata && { metadata: participant.metadata }),
     };

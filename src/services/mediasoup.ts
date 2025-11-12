@@ -64,9 +64,9 @@ export class MediasoupService {
         const workerBin = this.getWorkerBinPath();
         if (workerBin) {
           const workerDir = path.dirname(workerBin);
-          const currentPath = process.env.PATH || '';
+          const currentPath = process.env['PATH'] || '';
           if (!currentPath.includes(workerDir)) {
-            process.env.PATH = `${workerDir};${currentPath}`;
+            process.env['PATH'] = `${workerDir};${currentPath}`;
             logSystemEvent('info', `Added mediasoup worker directory to PATH: ${workerDir}`, 'mediasoup');
           }
         }
@@ -91,11 +91,11 @@ export class MediasoupService {
           const workerBin = this.getWorkerBinPath();
           if (workerBin) {
             // Normalize path for Windows
-            workerSettings.workerPath = path.normalize(workerBin);
-            logSystemEvent('info', `Using worker path: ${workerSettings.workerPath}`, 'mediasoup', { workerIndex: i });
+            (workerSettings as any).workerPath = path.normalize(workerBin);
+            logSystemEvent('info', `Using worker path: ${(workerSettings as any).workerPath}`, 'mediasoup', { workerIndex: i });
           }
         } else if (config.mediasoup.worker.bin && config.mediasoup.worker.bin !== 'mediasoup-worker') {
-          workerSettings.workerPath = config.mediasoup.worker.bin;
+          (workerSettings as any).workerPath = config.mediasoup.worker.bin;
         }
 
         const worker = await mediasoup.createWorker(workerSettings);
@@ -206,7 +206,6 @@ export class MediasoupService {
       logSystemEvent('info', 'Attempting to create producer', 'mediasoup', { 
         kind,
         transportId: transport.id,
-        transportState: transport.connectionState,
         codecsCount: rtpParameters.codecs?.length,
         encodingsCount: rtpParameters.encodings?.length,
         rtpParametersDetail: {
@@ -236,7 +235,6 @@ export class MediasoupService {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
         kind,
-        transportState: transport.connectionState,
         rtpParametersSnippet: JSON.stringify(rtpParameters).substring(0, 300)
       });
       throw createSystemError('Failed to create producer', 'mediasoup', { error: error instanceof Error ? error.message : String(error) });
@@ -343,7 +341,7 @@ export class MediasoupService {
     ];
 
     // In development, return all codecs for maximum compatibility
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env['NODE_ENV'] === 'development') {
       return codecs;
     }
 

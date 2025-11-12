@@ -584,8 +584,7 @@ export class WebSocketService {
 
     const transportType = participant.sendTransport?.id === data.transportId ? 'send' : 'recv';
     logWebSocketEvent('info', `Connecting ${transportType} transport`, connection.id, connection.user.id, {
-      transportId: data.transportId,
-      stateBefore: transport.connectionState
+      transportId: data.transportId
     });
 
     await transport.connect({ 
@@ -599,8 +598,7 @@ export class WebSocketService {
     });
 
     logWebSocketEvent('info', `${transportType} transport connected`, connection.id, connection.user.id, {
-      transportId: data.transportId,
-      stateAfter: transport.connectionState
+      transportId: data.transportId
     });
 
     return { success: true };

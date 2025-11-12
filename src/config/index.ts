@@ -3,22 +3,22 @@ import { z } from 'zod';
 import path from 'path';
 
 // Load environment variables
-const result = loadDotenv({ path: path.resolve(process.cwd(), '.env') });
+loadDotenv({ path: path.resolve(process.cwd(), '.env') });
 
 // Fallback: Set environment variables directly if not loaded from .env
-if (!process.env.CORS_ORIGINS) {
-  process.env.CORS_ORIGINS = 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3005,http://127.0.0.1:3005';
+if (!process.env['CORS_ORIGINS']) {
+  process.env['CORS_ORIGINS'] = 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3005,http://127.0.0.1:3005';
 }
-if (!process.env.DJANGO_JWT_SECRET) {
-  process.env.DJANGO_JWT_SECRET = 'test-secret';
+if (!process.env['DJANGO_JWT_SECRET']) {
+  process.env['DJANGO_JWT_SECRET'] = 'test-secret';
 }
-if (!process.env.DJANGO_WEBHOOK_SECRET) {
-  process.env.DJANGO_WEBHOOK_SECRET = 'test-webhook';
+if (!process.env['DJANGO_WEBHOOK_SECRET']) {
+  process.env['DJANGO_WEBHOOK_SECRET'] = 'test-webhook';
 }
 
 // Ensure NODE_ENV is set to development
-if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'development';
+if (!process.env['NODE_ENV']) {
+  process.env['NODE_ENV'] = 'development';
 }
 
 // Configuration schema validation
