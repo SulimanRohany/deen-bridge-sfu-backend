@@ -348,124 +348,140 @@ export class WebSocketService {
       rawData: message.data,
     });
     
-    const data = validateRequest(joinRoomSchema, message.data);
-    
-    // Log after validation
-    logWebSocketEvent('info', 'JoinRoom validation passed', connection.id, connection.user.id, {
-      roomId: data.roomId,
-      roomIdType: typeof data.roomId,
-    });
-    
-    // Check room access
-    const hasAccess = await authService.validateRoomAccess(connection.user.id, data.roomId);
-    if (!hasAccess) {
-      throw createSystemError(ERROR_CODES.ROOM_ACCESS_DENIED, 'Access denied to room');
-    }
-
-    const participant = await roomService.joinRoom(
-      data.roomId,
-      connection.user.id,
-      connection.user,
-      data.displayName,
-      data.metadata
-    );
-
-    connection.participantId = participant.id;
-    connection.roomId = data.roomId;
-
-    // Add to room connections (check if already exists to prevent duplicates)
-    if (!this.roomConnections.has(data.roomId)) {
-      this.roomConnections.set(data.roomId, new Set());
+    // Ensure roomId is a string (Django session IDs are numeric, but we accept any string)
+    if (message.data?.roomId !== undefined && message.data?.roomId !== null) {
+      message.data.roomId = String(message.data.roomId);
     }
     
-    const roomConnections = this.roomConnections.get(data.roomId)!;
-    if (!roomConnections.has(connection.id)) {
-      roomConnections.add(connection.id);
-    }
-
-    // Get room participants
-    const participants = roomService.getRoomParticipants(data.roomId);
-    
-    // Filter out hidden participants for non-observer users
-    // Observers can see everyone, but regular users cannot see observers
-    const isObserver = participant.isHidden === true;
-    const visibleParticipants = isObserver 
-      ? participants  // Observers see all participants
-      : participants.filter(p => !p.isHidden);  // Regular users don't see hidden participants
-    
-    const participantInfos = visibleParticipants.map(p => {
-      const info = roomService.getParticipantInfo(p);
-      // Include producer IDs so new participants can subscribe to existing streams
-      const producers = Array.from(p.producers.values()).map(prod => ({
-        id: prod.id,
-        kind: prod.kind,
-        paused: prod.paused
-      }));
-      return { ...info, producers };
-    });
-
-    // Debug log
-    logWebSocketEvent('info', 'Returning participants in joinRoom response', connection.id, connection.user.id, {
-      totalParticipants: participantInfos.length,
-      participantUserIds: participantInfos.map(p => p.userId),
-      currentUserId: connection.user.id,
-      isObserver,
-      participantsWithProducers: participantInfos.map(p => ({ 
-        userId: p.userId, 
-        producerCount: p.producers?.length || 0,
-        isHidden: p.isHidden 
-      }))
-    });
-
-    // Log participant join event (optional - skip if database not available)
     try {
-      await databaseService.logRoomEvent({
-        id: uuidv4(),
-        room_id: data.roomId,
-        participant_id: participant.id,
-        event_type: 'participant.joined',
-        event_data: {
-          userId: connection.user.id,
-          displayName: data.displayName,
-        },
-        created_at: new Date(),
+      const data = validateRequest(joinRoomSchema, message.data);
+      
+      // Log after validation
+      logWebSocketEvent('info', 'JoinRoom validation passed', connection.id, connection.user.id, {
+        roomId: data.roomId,
+        roomIdType: typeof data.roomId,
       });
-    } catch (error) {
-      // Ignore database errors in development
-      logWebSocketEvent('warn', 'Failed to log participant join event', connection.id, connection.user.id, {
-        error: error instanceof Error ? error.message : String(error),
+    
+      // Check room access
+      const hasAccess = await authService.validateRoomAccess(connection.user.id, data.roomId);
+      if (!hasAccess) {
+        throw createSystemError(ERROR_CODES.ROOM_ACCESS_DENIED, 'Access denied to room');
+      }
+
+      const participant = await roomService.joinRoom(
+        data.roomId,
+        connection.user.id,
+        connection.user,
+        data.displayName,
+        data.metadata
+      );
+
+      connection.participantId = participant.id;
+      connection.roomId = data.roomId;
+
+      // Add to room connections (check if already exists to prevent duplicates)
+      if (!this.roomConnections.has(data.roomId)) {
+        this.roomConnections.set(data.roomId, new Set());
+      }
+      
+      const roomConnections = this.roomConnections.get(data.roomId)!;
+      if (!roomConnections.has(connection.id)) {
+        roomConnections.add(connection.id);
+      }
+
+      // Get room participants
+      const participants = roomService.getRoomParticipants(data.roomId);
+      
+      // Filter out hidden participants for non-observer users
+      // Observers can see everyone, but regular users cannot see observers
+      const isObserver = participant.isHidden === true;
+      const visibleParticipants = isObserver 
+        ? participants  // Observers see all participants
+        : participants.filter(p => !p.isHidden);  // Regular users don't see hidden participants
+      
+      const participantInfos = visibleParticipants.map(p => {
+        const info = roomService.getParticipantInfo(p);
+        // Include producer IDs so new participants can subscribe to existing streams
+        const producers = Array.from(p.producers.values()).map(prod => ({
+          id: prod.id,
+          kind: prod.kind,
+          paused: prod.paused
+        }));
+        return { ...info, producers };
       });
+
+      // Debug log
+      logWebSocketEvent('info', 'Returning participants in joinRoom response', connection.id, connection.user.id, {
+        totalParticipants: participantInfos.length,
+        participantUserIds: participantInfos.map(p => p.userId),
+        currentUserId: connection.user.id,
+        isObserver,
+        participantsWithProducers: participantInfos.map(p => ({ 
+          userId: p.userId, 
+          producerCount: p.producers?.length || 0,
+          isHidden: p.isHidden 
+        }))
+      });
+
+      // Log participant join event (optional - skip if database not available)
+      try {
+        await databaseService.logRoomEvent({
+          id: uuidv4(),
+          room_id: data.roomId,
+          participant_id: participant.id,
+          event_type: 'participant.joined',
+          event_data: {
+            userId: connection.user.id,
+            displayName: data.displayName,
+          },
+          created_at: new Date(),
+        });
+      } catch (error) {
+        // Ignore database errors in development
+        logWebSocketEvent('warn', 'Failed to log participant join event', connection.id, connection.user.id, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // Send webhook
+      await webhookService.sendParticipantJoined(
+        data.roomId,
+        participant.id,
+        connection.user.id,
+        data.displayName,
+        participant.joinedAt.toISOString()
+      );
+
+      // Only notify other participants if this is a new join (not a duplicate)
+      // AND if the joining participant is NOT hidden (observers should not be announced)
+      const isNewParticipant = participant.joinedAt.getTime() > (Date.now() - 1000); // Joined within last second
+      if (isNewParticipant && !participant.isHidden) {
+        this.broadcastToRoom(data.roomId, {
+          type: 'participantJoined',
+          data: {
+            roomId: data.roomId,
+            participant: roomService.getParticipantInfo(participant),
+          },
+        }, connection.id);
+      }
+
+      metricsService.incrementParticipantJoin(data.roomId);
+
+      return {
+        roomId: data.roomId,
+        participants: participantInfos,
+        routerRtpCapabilities: roomService.getRouterRtpCapabilities(data.roomId),
+      };
+    } catch (validationError) {
+      // Enhanced error logging for validation errors
+      logWebSocketEvent('error', 'JoinRoom validation failed', connection.id, connection.user.id, {
+        error: validationError instanceof Error ? validationError.message : String(validationError),
+        roomId: message.data?.roomId,
+        roomIdType: typeof message.data?.roomId,
+        errorStack: validationError instanceof Error ? validationError.stack : undefined,
+      });
+      throw validationError;
     }
-
-    // Send webhook
-    await webhookService.sendParticipantJoined(
-      data.roomId,
-      participant.id,
-      connection.user.id,
-      data.displayName,
-      participant.joinedAt.toISOString()
-    );
-
-    // Only notify other participants if this is a new join (not a duplicate)
-    // AND if the joining participant is NOT hidden (observers should not be announced)
-    const isNewParticipant = participant.joinedAt.getTime() > (Date.now() - 1000); // Joined within last second
-    if (isNewParticipant && !participant.isHidden) {
-      this.broadcastToRoom(data.roomId, {
-        type: 'participantJoined',
-        data: {
-          roomId: data.roomId,
-          participant: roomService.getParticipantInfo(participant),
-        },
-      }, connection.id);
-    }
-
-    metricsService.incrementParticipantJoin(data.roomId);
-
-    return {
-      roomId: data.roomId,
-      participants: participantInfos,
-      routerRtpCapabilities: roomService.getRouterRtpCapabilities(data.roomId),
-    };
   }
 
   private async handleLeaveRoom(connection: WebSocketConnection, message: WebSocketMessage): Promise<any> {

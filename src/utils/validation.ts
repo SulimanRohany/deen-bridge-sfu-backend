@@ -3,7 +3,15 @@ import { createValidationError } from './errors';
 
 // Common validation schemas
 export const uuidSchema = z.string().uuid('Invalid UUID format');
-export const flexibleUuidSchema = z.string().min(1, 'ID cannot be empty');
+// Flexible schema that accepts any non-empty string (for Django session IDs which are numeric)
+export const flexibleUuidSchema = z.string()
+  .min(1, 'ID cannot be empty')
+  .refine((val) => {
+    // Accept any non-empty string - no UUID format requirement
+    return typeof val === 'string' && val.length > 0;
+  }, {
+    message: 'ID must be a non-empty string'
+  });
 export const emailSchema = z.string().email('Invalid email format');
 export const nonEmptyStringSchema = z.string().min(1, 'String cannot be empty');
 export const positiveNumberSchema = z.number().positive('Number must be positive');
