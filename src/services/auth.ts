@@ -361,11 +361,38 @@ export class AuthService {
       // Production: full JWT validation
       const token = this.extractTokenFromHeader(authHeader);
       const claims = await this.verifyToken(token);
-      const user = await this.getUserFromDjango(claims.user_id);
+      
+      // Get user data from the token payload (already verified)
+      // Decode the token to access the full payload with nested user object
+      const decoded = jwt.decode(token, { complete: true }) as any;
+      const payload = decoded?.payload || {};
+      
+      // Extract user data from token payload (Django includes full user object)
+      const tokenUser = payload.user || {};
+      const isActive = tokenUser.is_active !== undefined ? tokenUser.is_active : true;
+      const createdAt = tokenUser.created_at || new Date().toISOString();
+      const updatedAt = tokenUser.updated_at || new Date().toISOString();
+      
+      // Create User object from JWT token data
+      const user: User = {
+        id: claims.user_id,
+        email: claims.email,
+        fullName: claims.full_name,
+        role: claims.role as 'student' | 'teacher' | 'parent' | 'staff' | 'super_admin',
+        isActive: isActive,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      };
 
       if (!user.isActive) {
         throw createAuthError(ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS, 'User account is inactive');
       }
+
+      logSystemEvent('info', 'User authenticated from JWT token', 'auth', {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      });
 
       return { claims, user };
     } catch (error) {
