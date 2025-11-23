@@ -340,7 +340,21 @@ export class WebSocketService {
   }
 
   private async handleJoinRoom(connection: WebSocketConnection, message: WebSocketMessage): Promise<any> {
+    // Log the incoming message data for debugging
+    logWebSocketEvent('info', 'Processing joinRoom request', connection.id, connection.user.id, {
+      roomId: message.data?.roomId,
+      roomIdType: typeof message.data?.roomId,
+      displayName: message.data?.displayName,
+      rawData: message.data,
+    });
+    
     const data = validateRequest(joinRoomSchema, message.data);
+    
+    // Log after validation
+    logWebSocketEvent('info', 'JoinRoom validation passed', connection.id, connection.user.id, {
+      roomId: data.roomId,
+      roomIdType: typeof data.roomId,
+    });
     
     // Check room access
     const hasAccess = await authService.validateRoomAccess(connection.user.id, data.roomId);

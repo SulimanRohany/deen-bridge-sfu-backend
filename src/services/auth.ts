@@ -184,6 +184,14 @@ export class AuthService {
     }
 
     try {
+      // Log the request being sent
+      logSystemEvent('info', 'Calling Django room access endpoint', 'auth', {
+        userId,
+        roomId,
+        roomIdType: typeof roomId,
+        endpoint: `${config.django.baseUrl}/api/sfu/room-access/`,
+      });
+      
       // Call Django to check room access permissions
       const response = await axios.post(
         `${config.django.baseUrl}/api/sfu/room-access/`,
@@ -199,12 +207,28 @@ export class AuthService {
         }
       );
 
-      return response.status === 200 && response.data.allowed === true;
-    } catch (error) {
-      logSystemEvent('warn', 'Failed to validate room access', 'auth', {
-        error: error instanceof Error ? error.message : String(error),
+      logSystemEvent('info', 'Django room access response received', 'auth', {
+        status: response.status,
+        allowed: response.data?.allowed,
         userId,
         roomId,
+      });
+
+      return response.status === 200 && response.data.allowed === true;
+    } catch (error) {
+      // Enhanced error logging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const axiosError = error as any;
+      
+      logSystemEvent('warn', 'Failed to validate room access', 'auth', {
+        error: errorMessage,
+        userId,
+        roomId,
+        roomIdType: typeof roomId,
+        status: axiosError?.response?.status,
+        statusText: axiosError?.response?.statusText,
+        responseData: axiosError?.response?.data,
+        endpoint: `${config.django.baseUrl}/api/sfu/room-access/`,
       });
 
       // Default to allowing access if Django is unavailable
