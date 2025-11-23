@@ -17,18 +17,18 @@ export const createRoomSchema = z.object({
 });
 
 export const joinRoomSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   displayName: z.string().min(1, 'Display name is required').max(50, 'Display name too long'),
   metadata: z.record(z.any()).optional(),
 });
 
 export const leaveRoomSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
 });
 
 // Producer validation schemas
 export const publishSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   kind: z.enum(['audio', 'video'], { errorMap: () => ({ message: 'Kind must be audio or video' }) }),
   rtpParameters: z.object({
     codecs: z.array(z.any()).min(1, 'RTP parameters must include codecs'),
@@ -43,13 +43,13 @@ export const publishSchema = z.object({
 });
 
 export const unpublishSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   producerId: z.string().min(1, 'Producer ID is required'),
 });
 
 // Consumer validation schemas
 export const subscribeSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   producerId: z.string().min(1, 'Producer ID is required'),
   rtpCapabilities: z.object({
     codecs: z.array(z.any()).min(1, 'RTP capabilities must include codecs'),
@@ -58,33 +58,33 @@ export const subscribeSchema = z.object({
 });
 
 export const unsubscribeSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   consumerId: z.string().min(1, 'Consumer ID is required'),
 });
 
 export const resumeSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   consumerId: z.string().min(1, 'Consumer ID is required'),
 });
 
 export const pauseSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   consumerId: z.string().min(1, 'Consumer ID is required'),
 });
 
 // Producer pause/resume validation schemas
 export const pauseProducerSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   producerId: z.string().min(1, 'Producer ID is required'),
 });
 
 export const resumeProducerSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   producerId: z.string().min(1, 'Producer ID is required'),
 });
 
 export const setPreferredLayersSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   consumerId: z.string().min(1, 'Consumer ID is required'),
   spatialLayer: z.number().int().min(0, 'Spatial layer must be non-negative'),
   temporalLayer: z.number().int().min(0, 'Temporal layer must be non-negative'),
@@ -92,13 +92,13 @@ export const setPreferredLayersSchema = z.object({
 
 // Transport validation schemas
 export const createWebRtcTransportSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   direction: z.enum(['send', 'recv'], { errorMap: () => ({ message: 'Direction must be send or recv' }) }),
   sctpCapabilities: z.any().optional(),
 });
 
 export const connectWebRtcTransportSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   transportId: z.string().min(1, 'Transport ID is required'),
   dtlsParameters: z.object({
     role: z.enum(['auto', 'client', 'server'], { errorMap: () => ({ message: 'Invalid DTLS role' }) }),
@@ -110,13 +110,13 @@ export const connectWebRtcTransportSchema = z.object({
 });
 
 export const restartIceSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
   transportId: z.string().min(1, 'Transport ID is required'),
 });
 
 // Router validation schemas
 export const getRouterRtpCapabilitiesSchema = z.object({
-  roomId: process.env['NODE_ENV'] === 'development' ? flexibleUuidSchema : uuidSchema,
+  roomId: flexibleUuidSchema, // Accept any non-empty string ID (Django session IDs are not UUIDs)
 });
 
 // WebSocket message validation
