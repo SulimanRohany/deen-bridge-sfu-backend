@@ -97,7 +97,7 @@ export class WebhookService {
 
 
   private async sendWebhookRequest(payload: any): Promise<void> {
-    const webhookUrl = `${config.django.baseUrl}/api/sfu/webhooks/`;
+    const webhookUrl = `${config.django.baseUrl}/api/sfu/webhook/`;
   
     try {
       await axios.post(webhookUrl, payload, {
