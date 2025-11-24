@@ -81,20 +81,46 @@ export class WebhookService {
     throw lastError;
   }
 
-  private async sendWebhookRequest(payload: WebhookPayload): Promise<void> {
-    const webhookUrl = `${config.django.baseUrl}/api/sfu/webhook/`;
+  // private async sendWebhookRequest(payload: WebhookPayload): Promise<void> {
+  //   const webhookUrl = `${config.django.baseUrl}/api/sfu/webhook/`;
     
-    await axios.post(webhookUrl, payload, {
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-SFU-Signature': payload.signature,
-        'X-SFU-Event': payload.event,
-        'X-SFU-Timestamp': payload.timestamp,
-      },
-    });
+  //   await axios.post(webhookUrl, payload, {
+  //     timeout: 10000,
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       'X-SFU-Signature': payload.signature,
+  //       'X-SFU-Event': payload.event,
+  //       'X-SFU-Timestamp': payload.timestamp,
+  //     },
+  //   });
+  // }
+
+
+  private async sendWebhookRequest(payload: any): Promise<void> {
+    const webhookUrl = `${config.django.baseUrl}/api/sfu/webhook/`;
+  
+    try {
+      await axios.post(webhookUrl, payload, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json',
+          // This is the ONLY header 99% of Django SFU webhook views expect:
+          'X-Webhook-Secret': config.django.webhookSecret,
+          // If your Django view also checks event/timestamp, add them too:
+          // 'X-Webhook-Event': payload.event,
+          // 'X-Webhook-Timestamp': payload.timestamp,
+        },
+      });
+    } catch (error: any) {
+      // This will now show you the real status code
+      console.error('Webhook failed:', error.response?.status, error.response?.data);
+      throw error;
+    }
   }
 
+
+
+  
   // Specific webhook methods for different events
   async sendRoomCreated(roomId: string, name: string, description: string | undefined, maxParticipants: number, createdBy: string, instanceId: string): Promise<void> {
     await this.sendWebhook({
