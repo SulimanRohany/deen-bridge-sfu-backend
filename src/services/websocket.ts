@@ -678,12 +678,6 @@ export class WebSocketService {
     }
     
     // Log the full rtpParameters for debugging
-    console.log('Creating producer with rtpParameters:', JSON.stringify({
-      codecsCount: rtpParameters.codecs?.length,
-      headerExtensionsCount: rtpParameters.headerExtensions?.length,
-      encodingsCount: rtpParameters.encodings?.length,
-      hasRtcp: !!rtpParameters.rtcp
-    }));
 
     const producerInfo = await roomService.createProducer(
       data.roomId,

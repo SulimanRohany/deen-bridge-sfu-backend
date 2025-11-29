@@ -349,7 +349,6 @@ export class AuthService {
           }
         } catch (error) {
           // If token extraction fails, use fallback
-          console.log('Failed to decode token in dev mode, using fallback');
         }
 
         // Use real user data if available, otherwise fallback to mock
